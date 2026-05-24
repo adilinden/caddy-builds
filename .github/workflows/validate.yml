@@ -1,0 +1,62 @@
+name: Validate versions
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - versions.env
+      - modules/**.env
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Load versions
+        run: grep -v '^\s*#' versions.env | grep -v '^\s*$' >> $GITHUB_ENV
+
+      - name: Check Caddy release exists upstream
+        run: |
+          echo "Checking for Caddy v${CADDY_VERSION} on caddyserver/caddy..."
+          gh release view "v${CADDY_VERSION}" \
+            --repo caddyserver/caddy \
+            --json tagName \
+            --jq '.tagName' \
+            || { echo "ERROR: Caddy v${CADDY_VERSION} not found upstream"; exit 1; }
+          echo "OK: Caddy v${CADDY_VERSION} exists"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check xcaddy release exists upstream
+        run: |
+          echo "Checking for xcaddy v${XCADDY_VERSION} on caddyserver/xcaddy..."
+          gh release view "v${XCADDY_VERSION}" \
+            --repo caddyserver/xcaddy \
+            --json tagName \
+            --jq '.tagName' \
+            || { echo "ERROR: xcaddy v${XCADDY_VERSION} not found upstream"; exit 1; }
+          echo "OK: xcaddy v${XCADDY_VERSION} exists"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check release does not already exist in caddy-binaries
+        run: |
+          echo "Checking for existing release v${CADDY_VERSION} in caddy-binaries..."
+          if gh release view "v${CADDY_VERSION}" \
+            --repo adilinden/caddy-binaries \
+            --json tagName 2>/dev/null; then
+            echo "ERROR: Release v${CADDY_VERSION} already exists — bump to a new version"
+            exit 1
+          fi
+          echo "OK: No existing release for v${CADDY_VERSION}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

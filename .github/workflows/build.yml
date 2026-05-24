@@ -1,0 +1,98 @@
+name: Build Caddy binary
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - versions.env
+      - modules/**.env
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Build variant matrix
+        id: set-matrix
+        run: |
+          variants=$(ls modules/*.env | xargs -I{} basename {} .env | jq -R . | jq -sc .)
+          echo "matrix={\"variant\":${variants}}" >> $GITHUB_OUTPUT
+
+  build:
+    needs: prepare
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    strategy:
+      matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
+    concurrency:
+      group: release-${{ github.run_id }}
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Load versions
+        run: grep -v '^\s*#' versions.env | grep -v '^\s*$' >> $GITHUB_ENV
+
+      - name: Load variant modules
+        run: grep -v '^\s*#' modules/${{ matrix.variant }}.env | grep -v '^\s*$' >> $GITHUB_ENV
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: stable
+          cache: false
+
+      - name: Install xcaddy
+        run: |
+          go install github.com/caddyserver/xcaddy/cmd/xcaddy@v${XCADDY_VERSION}
+
+      - name: Build Caddy
+        run: |
+          with_args=$(echo "$MODULES" | tr ' ' '\n' | sed 's/^/--with /' | tr '\n' ' ')
+          xcaddy build v${CADDY_VERSION} \
+            ${with_args} \
+            --output caddy-linux-amd64-${VARIANT}
+
+      - name: Verify modules present
+        run: |
+          for mod in $MODULES; do
+            mod_path="${mod%@*}"
+            leaf=$(echo "$mod_path" | rev | cut -d/ -f1 | rev)
+            ./caddy-linux-amd64-${VARIANT} list-modules | grep -q "$leaf" \
+              && echo "OK: $leaf verified" \
+              || { echo "ERROR: $leaf missing"; exit 1; }
+          done
+
+      - name: Create checksum
+        run: |
+          sha256sum caddy-linux-amd64-${VARIANT} > caddy-linux-amd64-${VARIANT}.sha256
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.CADDY_VERSION }}
+          name: Caddy v${{ env.CADDY_VERSION }}
+          body: |
+            Caddy v${{ env.CADDY_VERSION }} with extended modules.
+
+            Built with xcaddy v${{ env.XCADDY_VERSION }}.
+
+            Verify checksum:
+
+                sha256sum -c caddy-linux-amd64-<variant>.sha256
+
+            See README for available variants and included modules.
+          files: |
+            caddy-linux-amd64-${{ matrix.variant }}
+            caddy-linux-amd64-${{ matrix.variant }}.sha256
