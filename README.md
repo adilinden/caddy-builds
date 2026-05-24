@@ -1,4 +1,4 @@
-# caddy-binaries
+# caddy-builds
 
 Builds Caddy with extended modules using xcaddy and publishes versioned
 binaries as GitHub Release assets.
@@ -68,7 +68,7 @@ No workflow changes required.
 3. The validate workflow runs automatically:
    - Confirms the Caddy version exists on caddyserver/caddy releases
    - Confirms the xcaddy version exists on caddyserver/xcaddy releases
-   - Confirms no release for this version already exists here
+   - Confirms no release for this version already exists in this repo
 4. Merge if all checks pass
 5. The build workflow runs and publishes all variant binaries as release assets
 
@@ -76,8 +76,8 @@ No workflow changes required.
 
 Specific version and variant (used by deploy.sh):
 
-    https://github.com/adilinden/caddy-binaries/releases/download/v2.11.3/caddy-linux-amd64-dns-cloudflare
-    https://github.com/adilinden/caddy-binaries/releases/download/v2.11.3/caddy-linux-amd64-dns-cloudflare.sha256
+    https://github.com/adilinden/caddy-builds/releases/download/v2.11.3/caddy-linux-amd64-dns-cloudflare
+    https://github.com/adilinden/caddy-builds/releases/download/v2.11.3/caddy-linux-amd64-dns-cloudflare.sha256
 
 ## Branch Protection
 
@@ -101,6 +101,7 @@ Configure in GitHub → Settings → Branches → Add rule for `main`:
 
 | Date | Change |
 |------|--------|
+| 2026-05-24 | Rename repo to caddy-builds; use github.repository in validate workflow |
 | 2026-05-24 | Document module version pinning |
 | 2026-05-23 | Add matrix build with variant support (dns-cloudflare, dns-azure, full) |
 | 2026-05-23 | Initial release |

@@ -52,7 +52,7 @@ jobs:
         run: |
           echo "Checking for existing release v${CADDY_VERSION} in caddy-binaries..."
           if gh release view "v${CADDY_VERSION}" \
-            --repo adilinden/caddy-binaries \
+            --repo ${{ github.repository }} \
             --json tagName 2>/dev/null; then
             echo "ERROR: Release v${CADDY_VERSION} already exists — bump to a new version"
             exit 1
